@@ -1,0 +1,47 @@
+k8s版本:1.7.3
+cat /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
+将
+Environment="KUBELET_CADVISOR_ARGS=--cadvisor-port=0”
+改为：
+Environment="KUBELET_CADVISOR_ARGS=--cadvisor-port=4194”
+执行命令：
+systemctl daemon-reload
+service kubelet restart
+查看端口是否存在
+ss -ntlpo | column -t
+查看kubelet状态
+service kubelet status
+● kubelet.service - kubelet: The Kubernetes Node Agent
+   Loaded: loaded (/lib/systemd/system/kubelet.service; enabled; vendor preset: enabled)
+  Drop-In: /etc/systemd/system/kubelet.service.d
+           └─10-kubeadm.conf
+   Active: active (running) since Tue 2018-06-05 16:20:17 CST; 18h ago
+     Docs: http://kubernetes.io/docs/
+ Main PID: 5582 (kubelet)
+    Tasks: 20
+   Memory: 50.0M
+      CPU: 52min 58.845s
+   CGroup: /system.slice/kubelet.service
+           ├─5582 /usr/bin/kubelet --kubeconfig=/etc/kubernetes/kubelet.conf --require-kubeconfig=true --pod-manifest-path=/etc/kubernetes/manifests --allow-privileged=true --network-plugin=cni --cni-co
+           └─5611 journalctl -k -f
+
+k8s版本: 1.11
+开启需要添加
+Environment="KUBELET_CADVISOR_ARGS=--cadvisor-port=4194"
+在ExecStart添加$KUBELET_CADVISOR_ARGS 
+
+
+[Service]
+Environment="KUBELET_KUBECONFIG_ARGS=--kubeconfig=/etc/kubernetes/kubelet.conf --require-kubeconfig=true"
+Environment="KUBELET_SYSTEM_PODS_ARGS=--pod-manifest-path=/etc/kubernetes/manifests --allow-privileged=true"
+Environment="KUBELET_NETWORK_ARGS=--network-plugin=cni --cni-conf-dir=/etc/cni/net.d --cni-bin-dir=/opt/cni/bin"
+Environment="KUBELET_DNS_ARGS=--cluster-dns=10.96.0.10 --cluster-domain=cluster.local"
+Environment="KUBELET_AUTHZ_ARGS=--authorization-mode=Webhook --client-ca-file=/etc/kubernetes/pki/ca.crt"
+Environment="KUBELET_CADVISOR_ARGS=--cadvisor-port=4194"
+ExecStart=
+ExecStart=/usr/bin/kubelet $KUBELET_KUBECONFIG_ARGS $KUBELET_SYSTEM_PODS_ARGS $KUBELET_NETWORK_ARGS $KUBELET_DNS_ARGS $KUBELET_AUTHZ_ARGS $KUBELET_CADVISOR_ARGS $KUBELET_EXTRA_ARGS
+
+root@pb-uat-k8s-msater:~# ps -ef |grep kubelet
+root      1164     1  3 May14 ?        14:45:29 /usr/bin/kubelet --kubeconfig=/etc/kubernetes/kubelet.conf --require-kubeconfig=true --pod-manifest-path=/etc/kubernetes/manifests --allow-privileged=true --network-plugin=cni --cni-conf-dir=/etc/cni/net.d --cni-bin-dir=/opt/cni/bin --cluster-dns=10.96.0.10 --cluster-domain=cluster.local --authorization-mode=Webhook --client-ca-file=/etc/kubernetes/pki/ca.crt --cadvisor-port=4194
+root      1709  1691  5 May14 ?        23:57:21 kube-apiserver --runtime-config=api/all=true --requestheader-username-headers=X-Remote-User --service-account-key-file=/etc/kubernetes/pki/sa.pub --tls-cert-file=/etc/kubernetes/pki/apiserver.crt --secure-port=6443 --requestheader-client-ca-file=/etc/kubernetes/pki/front-proxy-ca.crt --kubelet-client-key=/etc/kubernetes/pki/apiserver-kubelet-client.key --insecure-port=0 --admission-control=Initializers,NamespaceLifecycle,LimitRanger,ServiceAccount,PersistentVolumeLabel,DefaultStorageClass,DefaultTolerationSeconds,NodeRestriction,ResourceQuota --experimental-bootstrap-token-auth=true --requestheader-group-headers=X-Remote-Group --requestheader-allowed-names=front-proxy-client --client-ca-file=/etc/kubernetes/pki/ca.crt --kubelet-client-certificate=/etc/kubernetes/pki/apiserver-kubelet-client.crt --proxy-client-cert-file=/etc/kubernetes/pki/front-proxy-client.crt --allow-privileged=true --kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname --requestheader-extra-headers-prefix=X-Remote-Extra- --service-cluster-ip-range=10.96.0.0/12 --tls-private-key-file=/etc/kubernetes/pki/apiserver.key --proxy-client-key-file=/etc/kubernetes/pki/front-proxy-client.key --authorization-mode=Node,RBAC --advertise-address=192.168.10.25 --etcd-servers=http://127.0.0.1:2379
+root      8666  6704  0 18:07 pts/0    00:00:00 grep --color=auto kubelet
